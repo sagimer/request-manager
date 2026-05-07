@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#534AB7" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>מנהל בקשות</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --purple: #534AB7; --purple-dark: #3C3489; --purple-light: #EEEDFE; --purple-mid: #AFA9EC;
+      --bg: #F5F5F7; --card: #FFFFFF; --text: #1C1C1E; --text-secondary: #6B6B70;
+      --text-tertiary: #AEAEB2; --border: rgba(0,0,0,0.1); --border-mid: rgba(0,0,0,0.18);
+      --radius: 12px; --radius-sm: 8px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .app { max-width: 430px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+    .header { background: var(--card); border-bottom: 0.5px solid var(--border); padding: 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 20; }
+    .header-icon { width: 36px; height: 36px; background: var(--purple-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .header-title { font-size: 17px; font-weight: 600; }
+    .header-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+
+    .nav { display: flex; background: var(--card); border-top: 0.5px solid var(--border); position: sticky; bottom: 0; z-index: 20; padding-bottom: env(safe-area-inset-bottom); }
+    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 10px; transition: color 0.15s; -webkit-tap-highlight-color: transparent; }
+    .nav-btn.active { color: var(--purple); }
+    .nav-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .content { flex: 1; padding: 16px; padding-bottom: 24px; overflow-y: auto; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .card { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 16px; margin-bottom: 14px; }
+    .section-title { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+
+    /* Form */
+    .form-group { margin-bottom: 14px; position: relative; }
+    .form-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+    input[type="date"], input[type="text"] {
+      width: 100%; padding: 11px 12px; border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border-mid); background: var(--bg);
+      color: var(--text); font-size: 15px; font-family: inherit; outline: none;
+    }
+    input:focus { border-color: var(--purple); }
+    textarea.form-textarea { width: 100%; min-height: 80px; resize: none; font-family: inherit; font-size: 15px; padding: 11px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); background: var(--bg); color: var(--text); outline: none; line-height: 1.5; }
+    textarea.form-textarea:focus { border-color: var(--purple); }
+    textarea.form-textarea::placeholder { color: var(--text-tertiary); }
+
+    /* Autocomplete */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-input { width: 100%; padding: 11px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); background: var(--bg); color: var(--text); font-size: 15px; font-family: inherit; outline: none; }
+    .autocomplete-input:focus { border-color: var(--purple); }
+    .autocomplete-input::placeholder { color: var(--text-tertiary); }
+    .autocomplete-dropdown { position: absolute; top: calc(100% + 4px); right: 0; left: 0; background: var(--card); border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); box-shadow: 0 4px 20px rgba(0,0,0,0.12); z-index: 30; max-height: 220px; overflow-y: auto; display: none; }
+    .autocomplete-dropdown.show { display: block; }
+    .autocomplete-item { padding: 11px 14px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; -webkit-tap-highlight-color: transparent; }
+    .autocomplete-item:hover, .autocomplete-item.selected { background: var(--purple-light); }
+    .autocomplete-item .ac-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+    .ac-highlight { color: var(--purple); font-weight: 600; }
+
+    .btn { padding: 13px 16px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); background: none; cursor: pointer; font-size: 15px; color: var(--text); display: flex; align-items: center; gap: 6px; transition: all 0.1s; -webkit-tap-highlight-color: transparent; font-family: inherit; width: 100%; justify-content: center; font-weight: 500; }
+    .btn:active { transform: scale(0.97); }
+    .btn.primary { background: var(--purple); color: white; border-color: var(--purple); font-weight: 600; }
+    .btn.primary:active { background: var(--purple-dark); }
+
+    /* Notif banner */
+    .notif-banner { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--purple-dark); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .notif-banner.hidden { display: none; }
+
+    /* Request card */
+    .req-card { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 14px; margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+    .req-body { flex: 1; min-width: 0; }
+    .req-name { font-size: 14px; font-weight: 600; }
+    .req-text { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+    .req-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .req-date { font-size: 12px; color: var(--text-tertiary); }
+    .status-badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 100px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .s-pending { background: #FAEEDA; color: #633806; }
+    .s-progress { background: #E6F1FB; color: #0C447C; }
+    .s-done { background: #EAF3DE; color: #27500A; }
+    .delete-btn { cursor: pointer; font-size: 14px; color: var(--text-tertiary); margin-right: auto; background: none; border: none; padding: 2px 4px; }
+
+    /* Filter */
+    .filter-row { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-chip { padding: 6px 14px; border-radius: 100px; border: 0.5px solid var(--border-mid); background: var(--card); font-size: 13px; cursor: pointer; white-space: nowrap; color: var(--text-secondary); font-family: inherit; }
+    .filter-chip.active { background: var(--purple); color: white; border-color: var(--purple); font-weight: 500; }
+
+    /* Calendar */
+    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .cal-month { font-size: 16px; font-weight: 600; }
+    .cal-nav-btn { background: var(--bg); border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); padding: 6px 12px; cursor: pointer; font-size: 18px; color: var(--text-secondary); font-family: inherit; }
+
+    /* Calendar grid: week-num col + 7 day cols */
+    .cal-grid-days {
+      display: grid;
+      grid-template-columns: 28px repeat(7, 1fr);
+      gap: 2px;
+    }
+    .cal-week-num {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: var(--text-tertiary); font-weight: 600;
+      background: var(--bg); border-radius: 4px;
+      aspect-ratio: unset; padding: 4px 0;
+    }
+    .cal-day-label { text-align: center; font-size: 11px; color: var(--text-tertiary); padding: 4px 0; font-weight: 500; }
+    .cal-day-label.week-header { /* week-num column header */ font-size: 9px; color: var(--text-tertiary); display: flex; align-items: center; justify-content: center; }
+    .cal-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-size: 12px; position: relative; cursor: default; }
+    .cal-cell.has-req { background: var(--purple-light); color: var(--purple-dark); font-weight: 600; cursor: pointer; }
+    .cal-cell.today { border: 2px solid var(--purple); font-weight: 700; }
+    .cal-cell.other-month { color: var(--text-tertiary); }
+    .req-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--purple); position: absolute; bottom: 2px; }
+    .cal-events-list { margin-top: 16px; border-top: 0.5px solid var(--border); padding-top: 12px; }
+    .cal-event-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+    .cal-event-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Profiles */
+    .profile-item { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 10px; }
+    .profile-item:active { background: var(--bg); }
+    .profile-info { flex: 1; }
+    .profile-name { font-size: 15px; font-weight: 600; }
+    .profile-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .back-btn { display: flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; color: var(--purple); font-size: 14px; padding: 0 0 16px; font-family: inherit; font-weight: 500; }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .stat-box { background: var(--bg); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+    .stat-num { font-size: 22px; font-weight: 700; color: var(--purple); }
+    .stat-label { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 14px; }
+    .empty-icon { font-size: 44px; margin-bottom: 12px; }
+
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(10px); background: #1C1C1E; color: white; padding: 10px 20px; border-radius: 100px; font-size: 13px; opacity: 0; transition: all 0.25s; pointer-events: none; z-index: 100; white-space: nowrap; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-icon">📋</div>
+    <div>
+      <div class="header-title">מנהל בקשות</div>
+      <div class="header-sub" id="header-sub">טוען...</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- ADD -->
+    <div class="screen active" id="screen-add">
+      <div id="notif-banner" class="notif-banner" onclick="requestNotifPermission()">
+        🔔 הפעל תזכורות כדי לקבל התראה שבוע לפני כל בקשה
+      </div>
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">👤 עובד</label>
+          <div class="autocomplete-wrap">
+            <input type="text" class="autocomplete-input" id="inp-employee"
+              placeholder="התחל להקליד שם..." autocomplete="off" oninput="acFilter()" onblur="acBlur()" onkeydown="acKeydown(event)" dir="rtl" />
+            <div class="autocomplete-dropdown" id="ac-dropdown"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">📝 תיאור הבקשה</label>
+          <textarea class="form-textarea" id="inp-request" placeholder="תאר את הבקשה בחופשיות..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">📅 תאריך (אופציונלי)</label>
+          <input type="date" id="inp-date" />
+        </div>
+        <button class="btn primary" onclick="saveRequest()">+ הוסף בקשה</button>
+      </div>
+      <div class="section-title">בקשות אחרונות</div>
+      <div id="recent-list"></div>
+    </div>
+
+    <!-- BOARD -->
+    <div class="screen" id="screen-board">
+      <div class="filter-row">
+        <button class="filter-chip active" onclick="filterBoard('all',this)">הכל</button>
+        <button class="filter-chip" onclick="filterBoard('pending',this)">ממתין</button>
+        <button class="filter-chip" onclick="filterBoard('progress',this)">בטיפול</button>
+        <button class="filter-chip" onclick="filterBoard('done',this)">טופל</button>
+      </div>
+      <div id="board-list"></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="screen" id="screen-cal">
+      <div class="card">
+        <div class="cal-header">
+          <button class="cal-nav-btn" onclick="changeMonth(-1)">›</button>
+          <div class="cal-month" id="cal-month-label"></div>
+          <button class="cal-nav-btn" onclick="changeMonth(1)">‹</button>
+        </div>
+        <div class="cal-grid-days" id="cal-days"></div>
+        <div class="cal-events-list" id="cal-events"></div>
+      </div>
+    </div>
+
+    <!-- PROFILES -->
+    <div class="screen" id="screen-profiles">
+      <div id="profile-list-view"><div id="profile-list"></div></div>
+      <div id="profile-detail-view" style="display:none">
+        <button class="back-btn" onclick="closeProfile()">‹ חזרה לפרופילים</button>
+        <div id="profile-detail-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showScreen('add',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      הוסף
+    </button>
+    <button class="nav-btn" onclick="showScreen('board',this)">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      לוח
+    </button>
+    <button class="nav-btn" onclick="showScreen('cal',this)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      יומן
+    </button>
+    <button class="nav-btn" onclick="showScreen('profiles',this)">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      אנשים
+    </button>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const EMPLOYEES = [
+  "אורן זיכל (צ'יצו')","נויה יודאיקין","נועה שרף","עדי פרנק","שיר רוזי",
+  "נעם אלפאסי","יהונתן צפארי","שוהם גן אור","יעל רובין","נועם ברמן",
+  "נועם אליאס","אליה חופי","אפרת ריבקין","תומר ווקנין","זוהר אלכסנדר",
+  "אורי איפרגן","עדן אמון","גלב קורבאטוב","אורי סופר","נימרוד רום עמי"
+];
+const COLORS    = ["#534AB7","#1D9E75","#D85A30","#D4537E","#378ADD","#639922","#BA7517","#A32D2D","#0F6E56","#993556","#534AB7","#1D9E75","#D85A30","#D4537E","#378ADD","#639922","#BA7517","#A32D2D","#0F6E56","#993556"];
+const BG_COLORS = ["#EEEDFE","#E1F5EE","#FAECE7","#FBEAF0","#E6F1FB","#EAF3DE","#FAEEDA","#FCEBEB","#E1F5EE","#FBEAF0","#EEEDFE","#E1F5EE","#FAECE7","#FBEAF0","#E6F1FB","#EAF3DE","#FAEEDA","#FCEBEB","#E1F5EE","#FBEAF0"];
+
+let requests  = JSON.parse(localStorage.getItem('reqs_v5') || '[]');
+let calMonth  = new Date().getMonth();
+let calYear   = new Date().getFullYear();
+let acSelected = -1;
+let acCurrent  = '';   // validated selected employee
+
+/* ─── helpers ─── */
+function empIdx(n)  { return EMPLOYEES.indexOf(n); }
+function empColor(n){ const i=empIdx(n); return i>=0?COLORS[i]:"#534AB7"; }
+function empBg(n)   { const i=empIdx(n); return i>=0?BG_COLORS[i]:"#EEEDFE"; }
+function initials(n){ const p=n.trim().split(' '); return p.length>=2?p[0][0]+p[1][0]:p[0].slice(0,2); }
+function fmtDate(d) { if(!d) return ''; return new Date(d+'T12:00:00').toLocaleDateString('he-IL',{day:'numeric',month:'short',year:'numeric'}); }
+function save()     { localStorage.setItem('reqs_v5',JSON.stringify(requests)); updateCount(); scheduleAllNotifications(); }
+function updateCount(){ const o=requests.filter(r=>r.status!=='done').length; document.getElementById('header-sub').textContent=o+' בקשות פתוחות'; }
+function toast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+
+/* ─── ISO week number ─── */
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+/* ─── Autocomplete ─── */
+function acFilter() {
+  const val = document.getElementById('inp-employee').value;
+  acCurrent = '';
+  const q = val.trim().toLowerCase();
+  const dd = document.getElementById('ac-dropdown');
+  if (!q) { dd.classList.remove('show'); dd.innerHTML=''; return; }
+  const matches = EMPLOYEES.filter(e => e.toLowerCase().includes(q));
+  if (!matches.length) { dd.classList.remove('show'); dd.innerHTML=''; return; }
+  acSelected = -1;
+  dd.innerHTML = matches.map((e,i) => {
+    const idx = empIdx(e);
+    const highlighted = e.replace(new RegExp(`(${q})`, 'gi'), '<span class="ac-highlight">$1</span>');
+    return `<div class="autocomplete-item" data-val="${e}" onmousedown="acSelect('${e.replace(/'/g,"\\'")}')">
+      <div class="ac-avatar" style="background:${BG_COLORS[idx]};color:${COLORS[idx]}">${initials(e)}</div>
+      ${highlighted}
+    </div>`;
+  }).join('');
+  dd.classList.add('show');
+}
+
+function acSelect(val) {
+  document.getElementById('inp-employee').value = val;
+  acCurrent = val;
+  document.getElementById('ac-dropdown').classList.remove('show');
+  document.getElementById('inp-request').focus();
+}
+
+function acBlur() {
+  setTimeout(() => {
+    const dd = document.getElementById('ac-dropdown');
+    dd.classList.remove('show');
+    // validate — if typed text doesn't match exactly, keep it but mark invalid
+    const val = document.getElementById('inp-employee').value.trim();
+    if (EMPLOYEES.includes(val)) acCurrent = val;
+    else acCurrent = '';
+  }, 150);
+}
+
+function acKeydown(e) {
+  const dd = document.getElementById('ac-dropdown');
+  const items = dd.querySelectorAll('.autocomplete-item');
+  if (!dd.classList.contains('show') || !items.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); acSelected = Math.min(acSelected+1, items.length-1); acHighlight(items); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acSelected = Math.max(acSelected-1, 0); acHighlight(items); }
+  else if (e.key === 'Enter' && acSelected >= 0) { e.preventDefault(); acSelect(items[acSelected].dataset.val); }
+  else if (e.key === 'Escape') { dd.classList.remove('show'); }
+}
+function acHighlight(items) {
+  items.forEach((it,i) => it.classList.toggle('selected', i===acSelected));
+  if (acSelected>=0) items[acSelected].scrollIntoView({block:'nearest'});
+}
+
+/* ─── Notifications ─── */
+function checkNotifBanner() {
+  const banner = document.getElementById('notif-banner');
+  if (!('Notification' in window)) { banner.classList.add('hidden'); return; }
+  if (Notification.permission === 'granted') { banner.classList.add('hidden'); scheduleAllNotifications(); }
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) { toast('הדפדפן לא תומך בהתראות'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    document.getElementById('notif-banner').classList.add('hidden');
+    scheduleAllNotifications();
+    toast('התראות הופעלו ✓');
+  } else {
+    toast('לא ניתן אישור להתראות');
+  }
+}
+
+function scheduleAllNotifications() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  // Clear old scheduled timeouts
+  (window._notifTimeouts || []).forEach(clearTimeout);
+  window._notifTimeouts = [];
+  const now = new Date();
+  requests.filter(r => r.date && r.status !== 'done').forEach(r => {
+    const reqDate = new Date(r.date + 'T12:00:00');
+    const notifDate = new Date(reqDate);
+    notifDate.setDate(notifDate.getDate() - 7); // one week before
+    notifDate.setHours(9, 0, 0, 0);
+    const diff = notifDate - now;
+    if (diff > 0 && diff < 30 * 24 * 60 * 60 * 1000) { // schedule only within 30 days
+      const t = setTimeout(() => {
+        new Notification('תזכורת בקשה 🔔', {
+          body: `${r.employee} — ${r.request} (${fmtDate(r.date)})`,
+          icon: '/favicon.ico'
+        });
+      }, diff);
+      window._notifTimeouts.push(t);
+    }
+    // if the notification time is within the current week — notify now (once per session)
+    const alreadyNotified = (window._notifiedIds || new Set()).has(r.id);
+    if (!alreadyNotified && diff <= 0 && reqDate > now) {
+      if (!window._notifiedIds) window._notifiedIds = new Set();
+      window._notifiedIds.add(r.id);
+      new Notification('תזכורת בקשה השבוע 🔔', {
+        body: `${r.employee} — ${r.request} (${fmtDate(r.date)})`,
+        icon: '/favicon.ico'
+      });
+    }
+  });
+}
+
+/* ─── Save request ─── */
+function saveRequest() {
+  const empVal = document.getElementById('inp-employee').value.trim();
+  const emp    = acCurrent || (EMPLOYEES.includes(empVal) ? empVal : null);
+  const req    = document.getElementById('inp-request').value.trim();
+  const date   = document.getElementById('inp-date').value;
+  if (!emp) { toast('בחר עובד מהרשימה'); document.getElementById('inp-employee').focus(); return; }
+  if (!req) { toast('הזן תיאור הבקשה'); return; }
+  requests.unshift({ id: Date.now(), employee: emp, request: req, date: date||null, status: 'pending' });
+  save();
+  document.getElementById('inp-employee').value = '';
+  document.getElementById('inp-request').value  = '';
+  document.getElementById('inp-date').value     = '';
+  acCurrent = '';
+  renderRecent();
+  toast('הבקשה נשמרה ✓');
+}
+
+/* ─── Card HTML ─── */
+const statusMap   = {pending:'s-pending', progress:'s-progress', done:'s-done'};
+const statusLabel = {pending:'ממתין ▾', progress:'בטיפול ▾', done:'טופל ▾'};
+
+function reqCardHTML(r) {
+  const emp = r.employee || 'לא צוין';
+  return `<div class="req-card">
+    <div class="avatar" style="background:${empBg(emp)};color:${empColor(emp)}">${initials(emp)}</div>
+    <div class="req-body">
+      <div class="req-name">${emp}</div>
+      <div class="req-text">${r.request}</div>
+      <div class="req-meta">
+        ${r.date?`<span class="req-date">📅 ${fmtDate(r.date)}</span>`:''}
+        <span class="status-badge ${statusMap[r.status]||'s-pending'}" onclick="cycleStatus('${r.id}')">${statusLabel[r.status]||'ממתין ▾'}</span>
+        <button class="delete-btn" onclick="deleteReq('${r.id}')">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function cycleStatus(id) {
+  const r=requests.find(x=>x.id==id); if(!r) return;
+  const cycle={pending:'progress',progress:'done',done:'pending'};
+  r.status=cycle[r.status]||'pending';
+  save(); renderAll();
+}
+function deleteReq(id) {
+  if(!confirm('למחוק את הבקשה?')) return;
+  requests=requests.filter(x=>x.id!=id);
+  save(); renderAll(); toast('הבקשה נמחקה');
+}
+
+/* ─── Screens ─── */
+function renderRecent() {
+  const el=document.getElementById('recent-list');
+  const r=requests.slice(0,5);
+  el.innerHTML=r.length?r.map(reqCardHTML).join(''):'<div class="empty-state"><div class="empty-icon">📭</div>אין בקשות עדיין</div>';
+}
+
+function filterBoard(f,el) {
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); renderBoard(f);
+}
+function renderBoard(filter='all') {
+  const el=document.getElementById('board-list');
+  let filtered=filter==='all'?[...requests]:requests.filter(r=>r.status===filter);
+  if(!filtered.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>אין בקשות</div>';return;}
+  filtered.sort((a,b)=>{if(a.date&&b.date)return new Date(a.date)-new Date(b.date);if(a.date)return -1;if(b.date)return 1;return 0;});
+  el.innerHTML=filtered.map(reqCardHTML).join('');
+}
+
+/* ─── Calendar with ISO week numbers ─── */
+function renderCalendar() {
+  const months=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  document.getElementById('cal-month-label').textContent=months[calMonth]+' '+calYear;
+  const today=new Date();
+
+  // build req date map
+  const reqDates={};
+  requests.forEach(r=>{
+    if(r.date){const d=new Date(r.date+'T12:00:00');
+      if(d.getMonth()===calMonth&&d.getFullYear()===calYear){
+        const day=d.getDate();if(!reqDates[day])reqDates[day]=[];reqDates[day].push(r);
+      }
+    }
+  });
+
+  const firstOfMonth = new Date(calYear, calMonth, 1);
+  const daysInMonth  = new Date(calYear, calMonth+1, 0).getDate();
+  // Sunday=0 in JS; we want Sunday as first column
+  const startDow = firstOfMonth.getDay(); // 0=Sun
+
+  const dayLabels = ['א','ב','ג','ד','ה','ו','ש'];
+
+  // Header row: week-num label + day labels
+  let html = `<div class="cal-day-label week-header" style="font-size:9px;color:var(--text-tertiary)">שבוע</div>`;
+  html += dayLabels.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+
+  // Build day cells row by row
+  let dayNum = 1;
+  let cellIndex = 0;
+  const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
+
+  for (let row = 0; row < Math.ceil((startDow + daysInMonth) / 7); row++) {
+    // Compute week number for this row: find the first real day in the row
+    let firstDayInRow = row * 7 - startDow + 1;
+    if (firstDayInRow < 1) firstDayInRow = 1;
+    if (firstDayInRow > daysInMonth) firstDayInRow = daysInMonth;
+    const weekDate = new Date(calYear, calMonth, firstDayInRow);
+    const weekNum  = getISOWeek(weekDate);
+    html += `<div class="cal-week-num">${weekNum}</div>`;
+
+    for (let col = 0; col < 7; col++) {
+      const cellNum = row * 7 + col;
+      const day = cellNum - startDow + 1;
+      if (day < 1 || day > daysInMonth) {
+        html += `<div class="cal-cell other-month"></div>`;
+      } else {
+        const isToday = today.getDate()===day&&today.getMonth()===calMonth&&today.getFullYear()===calYear;
+        const hasReq  = reqDates[day]?.length>0;
+        html += `<div class="cal-cell${hasReq?' has-req':''}${isToday?' today':''}" onclick="showCalDay(${day})">${day}${hasReq?'<div class="req-dot"></div>':''}</div>`;
+      }
+    }
+  }
+
+  document.getElementById('cal-days').innerHTML = html;
+
+  // Events list
+  const monthReqs=requests.filter(r=>{if(!r.date)return false;const d=new Date(r.date+'T12:00:00');return d.getMonth()===calMonth&&d.getFullYear()===calYear;}).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const ev=document.getElementById('cal-events');
+  ev.innerHTML=monthReqs.length
+    ?'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;font-weight:500">בקשות החודש</div>'+monthReqs.map(r=>`<div class="cal-event-row"><div class="cal-event-dot" style="background:${empColor(r.employee||'')}"></div><span style="font-size:12px;font-weight:600;min-width:60px">${fmtDate(r.date)}</span><span style="font-size:13px;color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.employee||'?'} — ${r.request}</span></div>`).join('')
+    :'<div style="font-size:13px;color:var(--text-secondary);padding-top:8px">אין בקשות עם תאריך החודש</div>';
+}
+
+function showCalDay(day){
+  const r=requests.filter(r=>{if(!r.date)return false;const d=new Date(r.date+'T12:00:00');return d.getDate()===day&&d.getMonth()===calMonth&&d.getFullYear()===calYear;});
+  if(r.length) toast(r.map(x=>x.employee||'?').join(' | '));
+}
+function changeMonth(dir){
+  calMonth+=dir;
+  if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendar();
+}
+
+/* ─── Profiles ─── */
+function renderProfiles(){
+  document.getElementById('profile-list-view').style.display='';
+  document.getElementById('profile-detail-view').style.display='none';
+  document.getElementById('profile-list').innerHTML=EMPLOYEES.map((emp,i)=>{
+    const count=requests.filter(r=>r.employee===emp).length;
+    return `<div class="profile-item" onclick="showProfile(${i})">
+      <div class="avatar" style="background:${BG_COLORS[i]};color:${COLORS[i]}">${initials(emp)}</div>
+      <div class="profile-info"><div class="profile-name">${emp}</div><div class="profile-sub">${count} בקשות</div></div>
+      <span style="color:var(--text-tertiary);font-size:20px">‹</span>
+    </div>`;
+  }).join('');
+}
+function showProfile(i){
+  const emp=EMPLOYEES[i];
+  document.getElementById('profile-list-view').style.display='none';
+  document.getElementById('profile-detail-view').style.display='';
+  const empReqs=requests.filter(r=>r.employee===emp);
+  const pending=empReqs.filter(r=>r.status==='pending').length;
+  const progress=empReqs.filter(r=>r.status==='progress').length;
+  const done=empReqs.filter(r=>r.status==='done').length;
+  document.getElementById('profile-detail-content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+      <div class="avatar" style="width:52px;height:52px;font-size:17px;background:${BG_COLORS[i]};color:${COLORS[i]}">${initials(emp)}</div>
+      <div><div style="font-size:18px;font-weight:700">${emp}</div><div style="font-size:13px;color:var(--text-secondary)">${empReqs.length} בקשות סה״כ</div></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-num">${pending}</div><div class="stat-label">ממתינות</div></div>
+      <div class="stat-box"><div class="stat-num">${progress}</div><div class="stat-label">בטיפול</div></div>
+      <div class="stat-box"><div class="stat-num">${done}</div><div class="stat-label">טופלו</div></div>
+    </div>
+    ${empReqs.length?empReqs.map(reqCardHTML).join(''):'<div class="empty-state"><div class="empty-icon">📭</div>אין בקשות עדיין</div>'}`;
+}
+function closeProfile(){
+  document.getElementById('profile-detail-view').style.display='none';
+  document.getElementById('profile-list-view').style.display='';
+}
+
+/* ─── Navigation ─── */
+function showScreen(name,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='board') renderBoard();
+  if(name==='cal') renderCalendar();
+  if(name==='profiles') renderProfiles();
+  if(name==='add') renderRecent();
+}
+function renderAll(){
+  renderRecent();
+  const active=document.querySelector('.screen.active');
+  if(active?.id==='screen-board') renderBoard();
+  if(active?.id==='screen-cal') renderCalendar();
+  if(active?.id==='screen-profiles') renderProfiles();
+}
+
+/* ─── Init ─── */
+updateCount();
+renderRecent();
+checkNotifBanner();
+</script>
+</body>
+</html>
