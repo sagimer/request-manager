@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#534AB7" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>מנהל בקשות</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --purple: #534AB7; --purple-dark: #3C3489; --purple-light: #EEEDFE; --purple-mid: #AFA9EC;
+      --bg: #F5F5F7; --card: #FFFFFF; --text: #1C1C1E; --text-secondary: #6B6B70;
+      --text-tertiary: #AEAEB2; --border: rgba(0,0,0,0.1); --border-mid: rgba(0,0,0,0.18);
+      --radius: 12px; --radius-sm: 8px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .app { max-width: 430px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+    .header { background: var(--card); border-bottom: 0.5px solid var(--border); padding: 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 20; }
+    .header-icon { width: 36px; height: 36px; background: var(--purple-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .header-title { font-size: 17px; font-weight: 600; }
+    .header-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+    .nav { display: flex; background: var(--card); border-top: 0.5px solid var(--border); position: sticky; bottom: 0; z-index: 20; padding-bottom: env(safe-area-inset-bottom); }
+    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 10px; transition: color 0.15s; -webkit-tap-highlight-color: transparent; }
+    .nav-btn.active { color: var(--purple); }
+    .nav-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .content { flex: 1; padding: 16px; padding-bottom: 24px; overflow-y: auto; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .card { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 16px; margin-bottom: 14px; }
+    .section-title { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    .form-group { margin-bottom: 14px; position: relative; }
+    .form-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+    input[type="date"], input[type="text"] { width: 100%; padding: 11px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); background: var(--bg); color: var(--text); font-size: 15px; font-family: inherit; outline: none; }
+    input:focus { border-color: var(--purple); }
+    textarea.form-textarea { width: 100%; min-height: 80px; resize: none; font-family: inherit; font-size: 15px; padding: 11px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); background: var(--bg); color: var(--text); outline: none; line-height: 1.5; }
+    textarea.form-textarea:focus { border-color: var(--purple); }
+    textarea.form-textarea::placeholder { color: var(--text-tertiary); }
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-input { width: 100%; padding: 11px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); background: var(--bg); color: var(--text); font-size: 15px; font-family: inherit; outline: none; }
+    .autocomplete-input:focus { border-color: var(--purple); }
+    .autocomplete-input::placeholder { color: var(--text-tertiary); }
+    .autocomplete-dropdown { position: absolute; top: calc(100% + 4px); right: 0; left: 0; background: var(--card); border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); box-shadow: 0 4px 20px rgba(0,0,0,0.12); z-index: 30; max-height: 220px; overflow-y: auto; display: none; }
+    .autocomplete-dropdown.show { display: block; }
+    .autocomplete-item { padding: 11px 14px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+    .autocomplete-item:hover, .autocomplete-item.selected { background: var(--purple-light); }
+    .ac-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+    .ac-highlight { color: var(--purple); font-weight: 600; }
+    .btn { padding: 13px 16px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); background: none; cursor: pointer; font-size: 15px; color: var(--text); display: flex; align-items: center; gap: 6px; transition: all 0.1s; -webkit-tap-highlight-color: transparent; font-family: inherit; width: 100%; justify-content: center; font-weight: 500; }
+    .btn:active { transform: scale(0.97); }
+    .btn.primary { background: var(--purple); color: white; border-color: var(--purple); font-weight: 600; }
+    .btn.primary:active { background: var(--purple-dark); }
+    .btn.secondary { background: var(--card); color: var(--purple); border-color: var(--purple-mid); font-weight: 600; margin-top: 8px; }
+    .notif-banner { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--purple-dark); cursor: pointer; }
+    .notif-banner.hidden { display: none; }
+    .req-card { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 14px; margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+    .req-body { flex: 1; min-width: 0; }
+    .req-name { font-size: 14px; font-weight: 600; }
+    .req-text { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+    .req-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .req-date { font-size: 12px; color: var(--text-tertiary); }
+    .status-badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 100px; cursor: pointer; }
+    .s-pending  { background: #FAEEDA; color: #633806; }
+    .s-progress { background: #E6F1FB; color: #0C447C; }
+    .s-done     { background: #EAF3DE; color: #27500A; }
+    .delete-btn { cursor: pointer; font-size: 14px; color: var(--text-tertiary); margin-right: auto; background: none; border: none; padding: 2px 4px; }
+    .filter-row { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-chip { padding: 6px 14px; border-radius: 100px; border: 0.5px solid var(--border-mid); background: var(--card); font-size: 13px; cursor: pointer; white-space: nowrap; color: var(--text-secondary); font-family: inherit; }
+    .filter-chip.active { background: var(--purple); color: white; border-color: var(--purple); font-weight: 500; }
+
+    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .cal-month  { font-size: 16px; font-weight: 600; }
+    .cal-nav-btn { background: var(--bg); border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); padding: 6px 12px; cursor: pointer; font-size: 18px; color: var(--text-secondary); font-family: inherit; }
+    .cal-grid { display: grid; grid-template-columns: 26px repeat(7, 1fr); gap: 2px; }
+    .cal-col-header { text-align: center; font-size: 10px; color: var(--text-tertiary); padding: 4px 0; font-weight: 600; }
+    .cal-week-num { display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-tertiary); font-weight: 700; background: var(--bg); border-radius: 4px; padding: 2px 0; }
+    .cal-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-size: 12px; position: relative; cursor: default; }
+    .cal-cell.has-req  { background: var(--purple-light); color: var(--purple-dark); font-weight: 600; cursor: pointer; }
+    .cal-cell.today    { border: 2px solid var(--purple); font-weight: 700; }
+    .cal-cell.other-month { color: var(--text-tertiary); }
+    .req-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--purple); position: absolute; bottom: 2px; }
+    .cal-events-list { margin-top: 16px; border-top: 0.5px solid var(--border); padding-top: 12px; }
+    .cal-event-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+    .cal-event-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .profile-item { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 10px; }
+    .profile-item:active { background: var(--bg); }
+    .profile-info { flex: 1; }
+    .profile-name { font-size: 15px; font-weight: 600; }
+    .profile-sub  { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .back-btn { display: flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; color: var(--purple); font-size: 14px; padding: 0 0 16px; font-family: inherit; font-weight: 500; }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .stat-box { background: var(--bg); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+    .stat-num { font-size: 22px; font-weight: 700; color: var(--purple); }
+    .stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+    .profile-section-title { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 14px; margin-bottom: 10px; }
+    .empty-state { text-align: center; padding: 32px 16px; color: var(--text-tertiary); }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+    #toast { position: fixed; bottom: 30px; left: 16px; right: 16px; background: #1C1C1E; color: white; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 14px; opacity: 0; transform: translateY(20px); transition: all 0.3s; pointer-events: none; z-index: 100; }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    .recent-section { margin-bottom: 16px; }
+    .recent-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-secondary); }
+    .recent-card { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 12px; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+    .recent-card:active { background: var(--bg); }
+
+    .chips-container { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; min-height: 32px; align-items: center; }
+    .chip { background: var(--purple-light); border: 0.5px solid var(--purple-mid); border-radius: 100px; padding: 6px 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--purple-dark); font-weight: 500; }
+    .chip-close { cursor: pointer; font-size: 14px; color: var(--purple); font-weight: 600; }
+
+    .mini-cal { background: var(--bg); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; }
+    .mini-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .mini-cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: 600; }
+    .mini-cal-day-header { text-align: center; font-size: 9px; font-weight: 600; color: var(--text-tertiary); padding: 4px 0; }
+    .mini-cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; cursor: pointer; position: relative; }
+    .mini-cal-day.other-month { color: var(--text-tertiary); }
+    .mini-cal-day.selected { background: var(--purple); color: white; font-weight: 600; }
+    .mini-cal-day.in-range { background: var(--purple-light); color: var(--purple-dark); }
+    .mini-cal-day.range-start, .mini-cal-day.range-end { background: var(--purple); color: white; font-weight: 600; }
+    .mini-cal-nav { display: flex; gap: 4px; justify-content: center; }
+    .mini-cal-nav-btn { background: var(--card); border: 0.5px solid var(--border-mid); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; font-family: inherit; }
+
+    .action-buttons { display: flex; gap: 8px; margin-top: 12px; }
+    .action-buttons .btn { flex: 1; padding: 11px 8px; font-size: 13px; }
+    .small-btn { padding: 8px 12px; font-size: 12px; width: auto; }
+
+    .calendar-btn { background: #4285F4; color: white; border-color: #4285F4; font-size: 12px; padding: 6px 12px; margin-top: 4px; }
+    .calendar-btn:active { background: #357ae8; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="header-icon">📋</div>
+      <div>
+        <div class="header-title">מנהל בקשות v6</div>
+        <div class="header-sub" id="header-sub">עדכון...</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div id="screen-add" class="screen active">
+        <div class="card">
+          <div class="section-title">בקשה חדשה</div>
+          
+          <div class="form-group">
+            <label class="form-label">מדריכים</label>
+            <div class="chips-container" id="employees-chips"></div>
+            <div class="autocomplete-wrap">
+              <input type="text" id="inp-employee" class="autocomplete-input" placeholder="חפש או בחר מדריך..." onkeyup="acFilter()" onblur="acBlur()" onkeydown="acKeydown(event)" />
+              <div id="ac-dropdown" class="autocomplete-dropdown"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">תיאור הבקשה</label>
+            <textarea class="form-textarea" id="inp-request" placeholder="מה הבקשה?"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">טווח תאריכים</label>
+            <div id="date-range-display" style="font-size:13px;color:var(--text-secondary);padding:8px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:8px">בחר תאריך</div>
+            <button class="btn secondary" onclick="toggleDateRangeCalendar()">📅 בחר תאריכים</button>
+            <div id="mini-calendar" style="display:none"></div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn primary" onclick="addRequest()">הוסף בקשה</button>
+            <button class="btn secondary" onclick="exportRequests()" style="flex:1;margin-top:0">📤 ייצוא</button>
+          </div>
+        </div>
+
+        <div id="recent-requests" class="recent-section"></div>
+      </div>
+
+      <div id="screen-board" class="screen">
+        <div class="card">
+          <div class="section-title">סינון</div>
+          <div class="filter-row" id="filter-row"></div>
+        </div>
+        <div id="board-content"></div>
+      </div>
+
+      <div id="screen-cal" class="screen">
+        <div class="card">
+          <div class="cal-header">
+            <button class="cal-nav-btn" onclick="changeMonth(-1)">›</button>
+            <div class="cal-month" id="cal-month-label"></div>
+            <button class="cal-nav-btn" onclick="changeMonth(1)">‹</button>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <div class="cal-events-list" id="cal-events"></div>
+        </div>
+      </div>
+
+      <div id="screen-profiles" class="screen">
+        <div id="profile-list-view">
+          <div id="profile-list"></div>
+        </div>
+        <div id="profile-detail-view" style="display:none">
+          <button class="back-btn" onclick="closeProfile()">‹ חזור</button>
+          <div id="profile-detail-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <button class="nav-btn active" onclick="showScreen('add',this)">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        הוסף
+      </button>
+      <button class="nav-btn" onclick="showScreen('board',this)">
+        <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" fill="currentColor"/></svg>
+        לוח
+      </button>
+      <button class="nav-btn" onclick="showScreen('cal',this)">
+        <svg viewBox="0 0 24 24"><path d="M3 4h18v16H3V4zm0-2h18a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 5h14v11H5V7z"/></svg>
+        יומן
+      </button>
+      <button class="nav-btn" onclick="showScreen('profiles',this)">
+        <svg viewBox="0 0 24 24"><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm6 0c1.66 0 2.99-1.34 2.99-3S19.66 6 18 6c-1.66 0-3 1.34-3 3s1.34 3 3 3zm0 2c-2 0-6.01 1-6 3v2h12v-2c0-2-4-3-6-3zM6 8c1.66 0 2.99-1.34 2.99-3S7.66 2 6 2C4.34 2 3 3.34 3 5s1.34 3 3 3zm0 2c-2 0-6 1-6 3v2h12v-2c0-2-4-3-6-3z"/></svg>
+        אנשים
+      </button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+const EMPLOYEES = [
+  "אורן זיכל (צ'יצו')","נויה יודאיקין","נועה שרף","עדי פרנק","שיר רוזי",
+  "נעם אלפאסי","יהונתן צפארי","שוהם גן אור","יעל רובין","נועם ברמן",
+  "נועם אליאס","אליה חופי","אפרת ריבקין","תומר ווקנין","זוהר אלכסנדר",
+  "אורי איפרגן","עדן אמון","גלב קורבאטוב","אורי סופר","נימרוד רום עמי"
+];
+const COLORS    = ["#534AB7","#1D9E75","#D85A30","#D4537E","#378ADD","#639922","#BA7517","#A32D2D","#0F6E56","#993556","#534AB7","#1D9E75","#D85A30","#D4537E","#378ADD","#639922","#BA7517","#A32D2D","#0F6E56","#993556"];
+const BG_COLORS = ["#EEEDFE","#E1F5EE","#FAECE7","#FBEAF0","#E6F1FB","#EAF3DE","#FAEEDA","#FCEBEB","#E1F5EE","#FBEAF0","#EEEDFE","#E1F5EE","#FAECE7","#FBEAF0","#E6F1FB","#EAF3DE","#FAEEDA","#FCEBEB","#E1F5EE","#FBEAF0"];
+
+let requests  = [];
+let selectedEmployees = [];
+let selectedStartDate = null;
+let selectedEndDate = null;
+let dateRangeOpen = false;
+let calMonth  = new Date().getMonth();
+let calYear   = new Date().getFullYear();
+let acSelected = -1, acCurrent = '';
+let miniCalMonth = new Date().getMonth();
+let miniCalYear = new Date().getFullYear();
+
+function migrateData() {
+  let data = localStorage.getItem('reqs_v6');
+  if (!data) data = localStorage.getItem('reqs_v5');
+  if (!data) data = '[]';
+  
+  requests = JSON.parse(data);
+  
+  requests = requests.map(r => ({
+    id: r.id,
+    employees: Array.isArray(r.employees) ? r.employees : (r.employee ? [r.employee] : []),
+    request: r.request,
+    startDate: r.startDate || r.date || null,
+    endDate: r.endDate || null,
+    status: r.status || 'pending'
+  }));
+  
+  save();
+}
+
+function empIdx(n)   { return EMPLOYEES.indexOf(n); }
+function empColor(n) { const i=empIdx(n); return i>=0?COLORS[i]:"#534AB7"; }
+function empBg(n)    { const i=empIdx(n); return i>=0?BG_COLORS[i]:"#EEEDFE"; }
+function initials(n) { const p=n.trim().split(' '); return p.length>=2?p[0][0]+p[1][0]:p[0].slice(0,2); }
+function fmtDate(d)  { if(!d)return''; return new Date(d+'T12:00:00').toLocaleDateString('he-IL',{day:'numeric',month:'long',year:'numeric'}); }
+function fmtDateShort(d) { if(!d)return''; return new Date(d+'T12:00:00').toLocaleDateString('he-IL',{day:'numeric',month:'short'}); }
+function save()      { localStorage.setItem('reqs_v6',JSON.stringify(requests)); updateCount(); scheduleAllNotifications(); }
+function updateCount(){ const o=requests.filter(r=>r.status!=='done').length; document.getElementById('header-sub').textContent=o+' בקשות פתוחות'; }
+function toast(msg)  { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+
+function getISOWeek(dateObj) {
+  const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function acFilter() {
+  acCurrent='';
+  const q=document.getElementById('inp-employee').value.trim().toLowerCase();
+  const dd=document.getElementById('ac-dropdown');
+  if(!q){dd.classList.remove('show');dd.innerHTML='';return;}
+  const matches=EMPLOYEES.filter(e=>!selectedEmployees.includes(e)&&e.toLowerCase().includes(q));
+  if(!matches.length){dd.classList.remove('show');dd.innerHTML='';return;}
+  acSelected=-1;
+  dd.innerHTML=matches.map(e=>{
+    const idx=empIdx(e);
+    const hl=e.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),'<span class="ac-highlight">$1</span>');
+    return `<div class="autocomplete-item" data-val="${e}" onmousedown="acSelect(this.dataset.val)">
+      <div class="ac-avatar" style="background:${BG_COLORS[idx]};color:${COLORS[idx]}">${initials(e)}</div>${hl}</div>`;
+  }).join('');
+  dd.classList.add('show');
+}
+function acSelect(val){ 
+  if(!selectedEmployees.includes(val)) {
+    selectedEmployees.push(val);
+    renderChips();
+  }
+  document.getElementById('inp-employee').value=''; 
+  acCurrent=''; 
+  document.getElementById('ac-dropdown').classList.remove('show'); 
+  document.getElementById('inp-employee').focus(); 
+}
+function acBlur(){ setTimeout(()=>{ document.getElementById('ac-dropdown').classList.remove('show'); },150); }
+function acKeydown(e){
+  const dd=document.getElementById('ac-dropdown'); const items=dd.querySelectorAll('.autocomplete-item');
+  if(!dd.classList.contains('show')||!items.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();acSelected=Math.min(acSelected+1,items.length-1);acHL(items);}
+  else if(e.key==='ArrowUp'){e.preventDefault();acSelected=Math.max(acSelected-1,0);acHL(items);}
+  else if(e.key==='Enter'&&acSelected>=0){e.preventDefault();acSelect(items[acSelected].dataset.val);}
+  else if(e.key==='Escape')dd.classList.remove('show');
+}
+function acHL(items){ items.forEach((it,i)=>it.classList.toggle('selected',i===acSelected)); if(acSelected>=0)items[acSelected].scrollIntoView({block:'nearest'}); }
+
+function renderChips() {
+  const cont = document.getElementById('employees-chips');
+  cont.innerHTML = selectedEmployees.map(emp => {
+    const idx = empIdx(emp);
+    return `<div class="chip">
+      <div class="ac-avatar" style="background:${BG_COLORS[idx]};color:${COLORS[idx]};width:24px;height:24px;font-size:10px">${initials(emp)}</div>
+      <span>${emp}</span>
+      <span class="chip-close" onclick="removeEmployee('${emp}')">×</span>
+    </div>`;
+  }).join('');
+}
+function removeEmployee(emp) {
+  selectedEmployees = selectedEmployees.filter(e => e !== emp);
+  renderChips();
+}
+
+function toggleDateRangeCalendar() {
+  dateRangeOpen = !dateRangeOpen;
+  const cal = document.getElementById('mini-calendar');
+  if(dateRangeOpen) {
+    miniCalMonth = selectedStartDate ? new Date(selectedStartDate+'T12:00:00').getMonth() : new Date().getMonth();
+    miniCalYear = selectedStartDate ? new Date(selectedStartDate+'T12:00:00').getFullYear() : new Date().getFullYear();
+    renderDateRangeCalendar();
+    cal.style.display = 'block';
+  } else {
+    cal.style.display = 'none';
+  }
+}
+function renderDateRangeCalendar() {
+  const months=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const dayHdrs=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+  
+  const firstDow=new Date(miniCalYear,miniCalMonth,1).getDay();
+  const daysInMonth=new Date(miniCalYear,miniCalMonth+1,0).getDate();
+  
+  let html = `<div class="mini-cal">
+    <div class="mini-cal-header">
+      <button class="mini-cal-nav-btn" onclick="changeMiniMonth(-1)">›</button>
+      <span>${months[miniCalMonth]} ${miniCalYear}</span>
+      <button class="mini-cal-nav-btn" onclick="changeMiniMonth(1)">‹</button>
+    </div>
+    <div class="mini-cal-grid">`;
+  
+  dayHdrs.forEach(d => html += `<div class="mini-cal-day-header">${d}</div>`);
+  
+  for(let i=0;i<firstDow;i++) html += `<div class="mini-cal-day other-month"></div>`;
+  
+  for(let day=1;day<=daysInMonth;day++) {
+    const dateStr = miniCalYear + '-' + String(miniCalMonth+1).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+    let cls = 'mini-cal-day';
+    if(selectedStartDate && dateStr === selectedStartDate) cls += ' range-start';
+    if(selectedEndDate && dateStr === selectedEndDate) cls += ' range-end';
+    if(selectedStartDate && selectedEndDate && dateStr > selectedStartDate && dateStr < selectedEndDate) cls += ' in-range';
+    if(selectedStartDate && !selectedEndDate && dateStr === selectedStartDate) cls += ' selected';
+    
+    html += `<div class="${cls}" onclick="selectDateRange('${dateStr}')">${day}</div>`;
+  }
+  
+  html += `</div></div>`;
+  document.getElementById('mini-calendar').innerHTML = html;
+  updateDateRangeDisplay();
+}
+function changeMiniMonth(dir) {
+  miniCalMonth += dir;
+  if(miniCalMonth > 11) { miniCalMonth = 0; miniCalYear++; }
+  if(miniCalMonth < 0) { miniCalMonth = 11; miniCalYear--; }
+  renderDateRangeCalendar();
+}
+function selectDateRange(dateStr) {
+  if(!selectedStartDate) {
+    selectedStartDate = dateStr;
+  } else if(!selectedEndDate) {
+    if(dateStr > selectedStartDate) {
+      selectedEndDate = dateStr;
+      dateRangeOpen = false;
+      document.getElementById('mini-calendar').style.display = 'none';
+    } else if(dateStr < selectedStartDate) {
+      selectedEndDate = selectedStartDate;
+      selectedStartDate = dateStr;
+      dateRangeOpen = false;
+      document.getElementById('mini-calendar').style.display = 'none';
+    } else {
+      selectedStartDate = null;
+    }
+  } else {
+    selectedStartDate = dateStr;
+    selectedEndDate = null;
+  }
+  renderDateRangeCalendar();
+}
+function updateDateRangeDisplay() {
+  const disp = document.getElementById('date-range-display');
+  if(!selectedStartDate && !selectedEndDate) {
+    disp.textContent = 'בחר תאריך';
+  } else if(selectedStartDate && !selectedEndDate) {
+    disp.textContent = '📍 ' + fmtDate(selectedStartDate);
+  } else {
+    disp.textContent = fmtDate(selectedStartDate) + ' — ' + fmtDate(selectedEndDate);
+  }
+}
+
+function checkNotifBanner(){ const b=document.getElementById('notif-banner'); if(!('Notification'in window)){if(b)b.classList.add('hidden');return;} if(Notification.permission==='granted'){if(b)b.classList.add('hidden');scheduleAllNotifications();} }
+function requestNotifPermission(el){ Notification.requestPermission().then(perm=>{ if(perm==='granted'){ toast('הודעות הופעלו!'); checkNotifBanner(); } }); }
+function scheduleAllNotifications(){
+  requests.filter(r=>r.startDate&&r.status!=='done').forEach(r=>{
+    const d=new Date(r.startDate+'T09:00:00');d.setDate(d.getDate()-7);
+    if(d>new Date()&&Notification.permission==='granted'){
+      setTimeout(()=>{
+        const empStr = r.employees.join(', ');
+        new Notification('תזכורת: בקשה של '+empStr,{body:r.request,badge:'📋'});
+      }, Math.max(0, d-Date.now()));
+    }
+  });
+}
+
+function addRequest(){
+  if(selectedEmployees.length === 0) { toast('בחר לפחות מדריך אחד'); return; }
+  if(!document.getElementById('inp-request').value.trim()) { toast('כתוב תיאור של הבקשה'); return; }
+  
+  const reqText = document.getElementById('inp-request').value.trim();
+  
+  requests.unshift({
+    id: Date.now(),
+    employees: selectedEmployees.slice(),
+    request: reqText,
+    startDate: selectedStartDate,
+    endDate: selectedEndDate,
+    status: 'pending'
+  });
+  
+  save();
+  
+  document.getElementById('inp-employee').value = '';
+  document.getElementById('inp-request').value = '';
+  selectedEmployees = [];
+  selectedStartDate = null;
+  selectedEndDate = null;
+  renderChips();
+  updateDateRangeDisplay();
+  renderRecent();
+  toast('בקשה התווספה!');
+}
+
+function exportRequests(){
+  const active = requests.filter(r => r.status !== 'done' && r.employees.length > 0);
+  if(!active.length) { toast('אין בקשות פעילות'); return; }
+  
+  const today = new Date().toLocaleDateString('he-IL',{day:'numeric',month:'numeric',year:'numeric'});
+  let text = '📋 סיכום בקשות פעילות\n🗓 ' + today + '\n' + '─'.repeat(20) + '\n\n';
+  
+  const byDate = {};
+  active.forEach(r => {
+    const d = r.startDate || 'ללא תאריך';
+    if(!byDate[d]) byDate[d] = [];
+    byDate[d].push(r);
+  });
+  
+  Object.keys(byDate).sort().forEach(date => {
+    if(date !== 'ללא תאריך') text += '📅 ' + fmtDate(date) + '\n';
+    else text += '📅 ללא תאריך\n';
+    
+    byDate[date].forEach(r => {
+      text += '  ' + (r.employees[0] || '?') + '\n';
+      text += '    ' + r.request + '\n';
+    });
+    text += '\n';
+  });
+  
+  const el = document.createElement('textarea');
+  el.value = text;
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  toast('ייצאתי! קופי-פייסט להודעה');
+}
+
+function renderRecent(){
+  const r = requests.filter(r => r.status !== 'done' && r.employees.length > 0).slice(0, 5);
+  let html = r.length ? '<div class="recent-section"><div class="recent-title">5 בקשות אחרונות</div>' + r.map(req => {
+    const date = req.startDate ? fmtDateShort(req.startDate) : '?';
+    const emps = req.employees.join(', ');
+    return `<div class="recent-card" onclick="document.getElementById('screen-board').click?.()">${date} • ${emps} • ${req.request.slice(0,20)}...</div>`;
+  }).join('') + '</div>' : '';
+  document.getElementById('recent-requests').innerHTML = html;
+}
+
+let filter='active';
+function renderBoard(){
+  document.getElementById('filter-row').innerHTML=['הכל','ממתין','בטיפול'].map(s=>{
+    const v=s==='הכל'?'active':s==='ממתין'?'pending':'progress';
+    return `<button class="filter-chip${v===filter?' active':''}" onclick="filter='${v}';renderBoard()">${s}</button>`;
+  }).join('');
+  let filtered = filter === 'active' ? requests.filter(r => r.status !== 'done' && r.employees.length > 0) : requests.filter(r => r.status === filter && r.employees.length > 0);
+  document.getElementById('board-content').innerHTML = filtered.length ? filtered.map(reqCardHTML).join('') : '<div style="text-align:center;padding:32px;color:var(--text-tertiary)">אין בקשות</div>';
+}
+
+function reqCardHTML(r){
+  const emps = r.employees.join(', ');
+  const idx = empIdx(r.employees[0] || '');
+  const dateText = r.startDate ? (r.endDate ? fmtDateShort(r.startDate) + ' - ' + fmtDateShort(r.endDate) : fmtDateShort(r.startDate)) : '';
+  
+  let html = `<div class="req-card">
+    <div class="avatar" style="background:${BG_COLORS[idx]||'#EEEDFE'};color:${COLORS[idx]||'#534AB7'}">${initials(r.employees[0]||'?')}</div>
+    <div class="req-body">
+      <div class="req-name">${emps}</div>
+      <div class="req-text">${r.request}</div>
+      <div class="req-meta">
+        ${dateText ? `<span class="req-date">📅 ${dateText}</span>` : ''}
+        <span class="status-badge s-${r.status}" onclick="cycleStatus(${r.id})">${r.status==='pending'?'ממתין':r.status==='progress'?'בטיפול':'טופל'}</span>
+        ${r.status === 'done' ? `<button class="calendar-btn small-btn" onclick="addToGoogleCalendar(${r.id})">🗓️ הוסף לקלנדר</button>` : ''}
+      </div>
+    </div>
+    <button class="delete-btn" onclick="deleteReq(${r.id})">🗑️</button>
+  </div>`;
+  
+  return html;
+}
+
+function cycleStatus(id){const r=requests.find(x=>x.id==id);if(!r)return;const c={pending:'progress',progress:'done',done:'pending'};r.status=c[r.status]||'pending';save();renderAll();}
+function deleteReq(id){if(!confirm('למחוק את הבקשה?'))return;requests=requests.filter(x=>x.id!=id);save();renderAll();toast('הבקשה נמחקה');}
+
+function addToGoogleCalendar(id) {
+  const req = requests.find(r => r.id === id);
+  if(!req || req.status !== 'done') { toast('רק בקשות טופלו'); return; }
+  
+  const startDate = req.startDate || new Date().toISOString().split('T')[0];
+  const endDate = req.endDate || startDate;
+  const title = req.employees.join(', ') + ' — ' + req.request;
+  const description = req.request;
+  
+  const start = new Date(startDate + 'T09:00:00').toISOString();
+  const end = new Date(endDate + 'T10:00:00').toISOString();
+  
+  const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${start.replace(/[-:]/g,'').split('.')[0]}/${end.replace(/[-:]/g,'').split('.')[0]}&details=${encodeURIComponent(description)}`;
+  
+  window.open(calUrl, '_blank');
+  toast('נפתח גוגל קלנדר');
+}
+
+function renderCalendar(){
+  const months=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  document.getElementById('cal-month-label').textContent=months[calMonth]+' '+calYear;
+  const today=new Date();
+  const reqDates={};
+  requests.forEach(r=>{
+    if(r.startDate){
+      const d=new Date(r.startDate+'T12:00:00');
+      if(d.getMonth()===calMonth&&d.getFullYear()===calYear){
+        const day=d.getDate();
+        if(!reqDates[day])reqDates[day]=[];
+        reqDates[day].push(r);
+      }
+    }
+  });
+  const firstDow=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const dayHdrs=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+  let html=`<div class="cal-col-header" style="font-size:8px;color:var(--text-tertiary)">שבוע</div>`;
+  html+=dayHdrs.map(d=>`<div class="cal-col-header">${d}</div>`).join('');
+  const totalRows=Math.ceil((firstDow+daysInMonth)/7);
+  for(let row=0;row<totalRows;row++){
+    const firstReal=Math.max(1, row*7 - firstDow + 1);
+    const wn = getISOWeek(new Date(calYear, calMonth, firstReal));
+    html+=`<div class="cal-week-num">${wn}</div>`;
+    for(let col=0;col<7;col++){
+      const day=row*7+col-firstDow+1;
+      if(day<1||day>daysInMonth){html+=`<div class="cal-cell other-month"></div>`;}
+      else{
+        const isToday=today.getDate()===day&&today.getMonth()===calMonth&&today.getFullYear()===calYear;
+        const hasReq=reqDates[day]?.length>0;
+        html+=`<div class="cal-cell${hasReq?' has-req':''}${isToday?' today':''}" onclick="showCalDay(${day})">${day}${hasReq?'<div class="req-dot"></div>':''}</div>`;
+      }
+    }
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+  const monthReqs=requests.filter(r=>{if(!r.startDate)return false;const d=new Date(r.startDate+'T12:00:00');return d.getMonth()===calMonth&&d.getFullYear()===calYear;}).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate));
+  const ev=document.getElementById('cal-events');
+  ev.innerHTML=monthReqs.length
+    ?'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;font-weight:500">בקשות החודש</div>'+monthReqs.map(r=>`<div class="cal-event-row"><div class="cal-event-dot" style="background:${empColor(r.employees[0]||'')}"></div><span style="font-size:12px;font-weight:600;min-width:60px">${fmtDateShort(r.startDate)}</span><span style="font-size:13px;color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.employees[0]||'?'} — ${r.request}</span></div>`).join('')
+    :'<div style="font-size:13px;color:var(--text-secondary);padding-top:8px">אין בקשות עם תאריך החודש</div>';
+}
+function showCalDay(day){const r=requests.filter(r=>{if(!r.startDate)return false;const d=new Date(r.startDate+'T12:00:00');return d.getDate()===day&&d.getMonth()===calMonth&&d.getFullYear()===calYear;});if(r.length)toast(r.map(x=>x.employees[0]||'?').join(' | '));}
+function changeMonth(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+
+function renderProfiles(){
+  document.getElementById('profile-list-view').style.display='';
+  document.getElementById('profile-detail-view').style.display='none';
+  document.getElementById('profile-list').innerHTML=EMPLOYEES.map((emp,i)=>{
+    const active=requests.filter(r=>r.employees.includes(emp)&&r.status!=='done').length;
+    const total=requests.filter(r=>r.employees.includes(emp)).length;
+    return `<div class="profile-item" onclick="showProfile(${i})">
+      <div class="avatar" style="background:${BG_COLORS[i]};color:${COLORS[i]}">${initials(emp)}</div>
+      <div class="profile-info"><div class="profile-name">${emp}</div><div class="profile-sub">${active} פעילות · ${total} סה״כ</div></div>
+      <span style="color:var(--text-tertiary);font-size:20px">‹</span>
+    </div>`;
+  }).join('');
+}
+function showProfile(i){
+  const emp=EMPLOYEES[i];
+  document.getElementById('profile-list-view').style.display='none';
+  document.getElementById('profile-detail-view').style.display='';
+  const all=requests.filter(r=>r.employees.includes(emp));
+  const active=all.filter(r=>r.status!=='done');
+  const done=all.filter(r=>r.status==='done');
+  let html=`<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+    <div class="avatar" style="width:52px;height:52px;font-size:17px;background:${BG_COLORS[i]};color:${COLORS[i]}">${initials(emp)}</div>
+    <div><div style="font-size:18px;font-weight:700">${emp}</div><div style="font-size:13px;color:var(--text-secondary)">${all.length} בקשות סה״כ</div></div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="stat-num">${all.filter(r=>r.status==='pending').length}</div><div class="stat-label">ממתינות</div></div>
+    <div class="stat-box"><div class="stat-num">${all.filter(r=>r.status==='progress').length}</div><div class="stat-label">בטיפול</div></div>
+    <div class="stat-box"><div class="stat-num">${done.length}</div><div class="stat-label">טופלו</div></div>
+  </div>`;
+  if(active.length){html+=`<div class="profile-section-title">בקשות פעילות</div>`+active.map(reqCardHTML).join('');}
+  if(done.length){html+=`<div class="profile-section-title">טופלו</div>`+done.map(reqCardHTML).join('');}
+  if(!all.length){html+=`<div class="empty-state"><div class="empty-icon">📭</div>אין בקשות עדיין</div>`;}
+  document.getElementById('profile-detail-content').innerHTML=html;
+}
+function closeProfile(){document.getElementById('profile-detail-view').style.display='none';document.getElementById('profile-list-view').style.display='';}
+
+function showScreen(name,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active'); btn.classList.add('active');
+  if(name==='board')renderBoard();if(name==='cal')renderCalendar();if(name==='profiles')renderProfiles();if(name==='add')renderRecent();
+}
+function renderAll(){
+  renderRecent();
+  const a=document.querySelector('.screen.active');
+  if(a?.id==='screen-board')renderBoard();if(a?.id==='screen-cal')renderCalendar();if(a?.id==='screen-profiles')renderProfiles();
+}
+
+migrateData();
+updateCount(); 
+renderRecent(); 
+checkNotifBanner();
+  </script>
+</body>
+</html>
